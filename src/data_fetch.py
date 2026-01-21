@@ -30,7 +30,7 @@ def fetch_yfinance_prices(
         group_by="column",
         auto_adjust=False,
         progress=False,
-        threads=True,
+        threads=False,
     )
 
     if raw.empty:
@@ -44,11 +44,12 @@ def fetch_yfinance_prices(
 
     # Stack tickers into rows
     # raw has index Date; columns (Field, Ticker)
-    tidy = (
-        raw.stack(level=1, future_stack=True)  # index: Date, asset
-        .reset_index()
-        .rename(columns={"level_0": "date", "level_1": "asset"})
-    )
+
+    tidy = raw.stack(level=1, future_stack=True).reset_index()
+
+    # Robust: regardless of whether columns are named Date/Ticker or level_0/level_1
+    tidy = tidy.rename(
+        columns={tidy.columns[0]: "date", tidy.columns[1]: "asset"})
 
     # Standardize column names
     rename_map = {
