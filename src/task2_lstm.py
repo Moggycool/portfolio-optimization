@@ -9,7 +9,6 @@ from typing import Tuple, Dict, List
 
 import numpy as np
 import pandas as pd
-
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from src import config
@@ -17,8 +16,18 @@ from src.task2_metrics import all_metrics
 
 
 def _ensure_dir(path: str) -> None:
-    """ Creates directory if it does not exist. """
+    """Creates directory if it does not exist."""
     os.makedirs(path, exist_ok=True)
+
+
+def _set_seeds(seed: int) -> None:
+    """Best-effort reproducibility across numpy / tensorflow."""
+    np.random.seed(seed)
+    try:
+        import tensorflow as tf
+        tf.random.set_seed(seed)
+    except Exception:
+        pass
 
 
 @dataclass
@@ -58,23 +67,19 @@ def make_sequences(
 
 
 def get_scalers(scaler_type: str):
-    """
-    Returns tuple of (X_scaler, y_scaler) based on scaler_type.
-    """
-    if scaler_type.lower() == "minmax":
+    """Returns tuple of (X_scaler, y_scaler) based on scaler_type."""
+    st = scaler_type.lower()
+    if st == "minmax":
         return MinMaxScaler(), MinMaxScaler()
-    if scaler_type.lower() == "standard":
+    if st == "standard":
         return StandardScaler(), StandardScaler()
     raise ValueError(
         f"Unknown scaler_type={scaler_type}. Use 'minmax' or 'standard'.")
 
 
 def build_lstm_model(input_shape: Tuple[int, int]):
-    """
-    input_shape = (lookback, n_features)
-    """
+    """input_shape = (lookback, n_features)"""
     try:
-        import tensorflow as tf
         from tensorflow.keras import layers, models, optimizers
     except ImportError as e:
         raise ImportError(
@@ -85,18 +90,16 @@ def build_lstm_model(input_shape: Tuple[int, int]):
     model = models.Sequential()
     model.add(layers.Input(shape=(lookback, n_features)))
 
-    # First LSTM
-    return_sequences = config.LSTM_UNITS_2 and config.LSTM_UNITS_2 > 0
+    return_sequences = bool(config.LSTM_UNITS_2 and config.LSTM_UNITS_2 > 0)
     model.add(
         layers.LSTM(
             config.LSTM_UNITS_1,
-            return_sequences=bool(return_sequences),
+            return_sequences=return_sequences,
             dropout=config.LSTM_DROPOUT,
             recurrent_dropout=config.LSTM_REC_DROPOUT,
         )
     )
 
-    # Optional second LSTM
     if config.LSTM_UNITS_2 and config.LSTM_UNITS_2 > 0:
         model.add(
             layers.LSTM(
@@ -122,59 +125,67 @@ def train_lstm_and_forecast(
     date_col: str = config.TASK2_DATE_COL,
 ) -> Tuple[pd.DataFrame, Dict, object]:
     """
-    Train on train_feat, forecast next-day for test period using sliding windows.
+    Train on train_feat, forecast next-day for the provided test_feat period using sliding windows.
     Returns:
-      forecast_df: [date, y_true, y_pred]
+      forecast_df: [date, y_true, lstm_pred]
       info: dict (architecture & metrics)
       model: trained keras model
     """
-    # Prepare arrays
+    _set_seeds(config.TASK2_RANDOM_SEED)
+
+    # --- Prepare arrays ---
     X_train_raw = train_feat[feature_cols].astype(float).values
     y_train_raw = train_feat[target_col].astype(float).values.reshape(-1, 1)
 
     X_test_raw = test_feat[feature_cols].astype(float).values
     y_test_raw = test_feat[target_col].astype(float).values.reshape(-1, 1)
 
-    # Fit scalers on TRAIN only
+    # --- Fit scalers on TRAIN only ---
     x_scaler, y_scaler = get_scalers(config.LSTM_SCALER_TYPE)
     X_train = x_scaler.fit_transform(X_train_raw)
     y_train = y_scaler.fit_transform(y_train_raw).reshape(-1)
 
-    # Transform test
+    # --- Transform test features; keep y_true in original scale for metrics ---
     X_test = x_scaler.transform(X_test_raw)
-    y_test = y_test_raw.reshape(-1)  # keep true in original scale
+    y_test_true = y_test_raw.reshape(-1)
 
-    # Sequence building requires a continuous timeline.
-    # For forecasting the test period, we append test to train for window context.
+    # Sequence forecasting uses appended context (train + test) for window availability.
     X_all = np.vstack([X_train, X_test])
     y_all_scaled = np.concatenate(
         [y_train, y_scaler.transform(y_test_raw).reshape(-1)])
 
-    lookback = config.LSTM_LOOKBACK
-    horizon = config.LSTM_HORIZON
+    lookback = int(config.LSTM_LOOKBACK)
+    horizon = int(config.LSTM_HORIZON)
 
     X_seq, y_seq = make_sequences(X_all, y_all_scaled, lookback, horizon)
 
-    # Determine which sequence indices correspond to test dates
-    # The first target index in y_seq corresponds to original index = lookback + horizon - 1
+    # Each y_seq element corresponds to an original (train+test) index:
+    # target_idx = lookback + horizon - 1 + seq_idx
     first_target_idx = lookback + horizon - 1
     target_indices = np.arange(first_target_idx, first_target_idx + len(y_seq))
 
-    train_end_idx = len(train_feat) - 1
-    test_mask = target_indices > train_end_idx
+    # Targets strictly AFTER the last train index belong to test forecast evaluation
+    train_last_idx = len(train_feat) - 1
+    test_mask = target_indices > train_last_idx
 
     X_train_seq = X_seq[~test_mask]
     y_train_seq = y_seq[~test_mask]
 
     X_test_seq = X_seq[test_mask]
-    y_test_seq_scaled = y_seq[test_mask]  # scaled true (for optional eval)
 
-    # Dates for test predictions align with those target indices
-    all_dates = pd.to_datetime(pd.concat(
-        [train_feat[date_col], test_feat[date_col]], axis=0).reset_index(drop=True))
+    # Dates for predicted targets
+    all_dates = pd.to_datetime(
+        pd.concat([train_feat[date_col], test_feat[date_col]],
+                  axis=0).reset_index(drop=True)
+    )
     test_dates = all_dates.iloc[target_indices[test_mask]].values
 
-    # Build + train
+    # True y for those dates in ORIGINAL scale
+    y_all_true = np.concatenate(
+        [train_feat[target_col].values, test_feat[target_col].values])
+    y_true = y_all_true[target_indices[test_mask]].astype(float)
+
+    # --- Build + train model ---
     model = build_lstm_model(input_shape=(lookback, len(feature_cols)))
 
     callbacks = []
@@ -213,21 +224,18 @@ def train_lstm_and_forecast(
         verbose=1,
     )
 
-    # Predict (scaled), then invert to original price scale
+    # --- Predict (scaled -> invert to original price scale) ---
     y_pred_scaled = model.predict(X_test_seq, verbose=0).reshape(-1, 1)
-    y_pred = y_scaler.inverse_transform(y_pred_scaled).reshape(-1)
+    y_pred = y_scaler.inverse_transform(
+        y_pred_scaled).reshape(-1).astype(float)
 
-    # True y for those dates in ORIGINAL scale
-    # We can obtain them from concatenated original y_all (unscaled) by indexing
-    y_all_true = np.concatenate(
-        [train_feat[target_col].values, test_feat[target_col].values])
-    y_true = y_all_true[target_indices[test_mask]]
-
-    forecast_df = pd.DataFrame({
-        date_col: pd.to_datetime(test_dates),
-        "y_true": y_true.astype(float),
-        "y_pred": y_pred.astype(float),
-    })
+    forecast_df = pd.DataFrame(
+        {
+            date_col: pd.to_datetime(test_dates),
+            "y_true": y_true,
+            "lstm_pred": y_pred,
+        }
+    )
 
     run_info = LSTMRunInfo(
         lookback=lookback,
@@ -250,14 +258,14 @@ def train_lstm_and_forecast(
             "loss": float(history.history["loss"][-1]) if "loss" in history.history else None,
             "val_loss": float(history.history["val_loss"][-1]) if "val_loss" in history.history else None,
         },
-        "metrics": all_metrics(forecast_df["y_true"], forecast_df["y_pred"]),
+        "metrics": all_metrics(forecast_df["y_true"], forecast_df["lstm_pred"]),
     }
 
     return forecast_df, info, model
 
 
 def save_lstm_outputs(forecast_df: pd.DataFrame, info: Dict, model) -> None:
-    """ Saves forecast CSV, run info JSON, and the Keras model. """
+    """Saves forecast CSV, run info JSON, and the Keras model."""
     _ensure_dir(config.TASK2_FORECASTS_DIR)
     _ensure_dir(config.TASK2_METRICS_DIR)
     _ensure_dir(config.TASK2_MODELS_DIR)
@@ -267,10 +275,5 @@ def save_lstm_outputs(forecast_df: pd.DataFrame, info: Dict, model) -> None:
     with open(config.TASK2_LSTM_ARCH_PATH, "w", encoding="utf-8") as f:
         json.dump(info, f, indent=2)
 
-    # Save model (Keras v3 format is fine as .keras)
-    try:
-        model.save(config.TASK2_LSTM_MODEL_PATH)
-    except Exception as e:
-        # non-fatal: still keep forecast + metrics
-        raise
-    # print(f"Warning: Could not save LSTM model. {e}")
+    # Save model (.keras)
+    model.save(config.TASK2_LSTM_MODEL_PATH)
