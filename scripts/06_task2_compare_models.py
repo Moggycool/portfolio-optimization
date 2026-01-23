@@ -9,6 +9,7 @@ Produces:
 from __future__ import annotations
 
 import os
+import time
 from typing import Optional, Tuple
 
 import pandas as pd
@@ -203,8 +204,21 @@ def main() -> None:
         comparison_rows += _comparison_rows(test_cal, suffix="_calibrated")
 
     comparison = pd.DataFrame(comparison_rows).sort_values("RMSE")
-    comparison.to_csv(config.TASK2_MODEL_COMPARISON_PATH, index=False)
-    print("Saved model comparison:", config.TASK2_MODEL_COMPARISON_PATH)
+    out_path = config.TASK2_MODEL_COMPARISON_PATH
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    try:
+        comparison.to_csv(out_path, index=False)
+        print("Saved model comparison:", out_path)
+    except PermissionError:
+        # Common on Windows if the CSV is open in Excel.
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        fallback = os.path.join(
+            os.path.dirname(out_path) or ".",
+            f"model_comparison_{ts}.csv",
+        )
+        comparison.to_csv(fallback, index=False)
+        print("Permission denied writing:", out_path)
+        print("Wrote model comparison to:", fallback)
     print(comparison)
 
     # --- Diagnostics table (raw + calibrated if present) ---

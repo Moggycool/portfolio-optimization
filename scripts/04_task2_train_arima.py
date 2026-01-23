@@ -95,7 +95,10 @@ def _fit_and_forecast(
         train_df,
         test_df,
         strategy="walk_forward",
-        refit_each_step=True,
+        # Using auto_arima at *every* step is extremely slow (and often leads to Ctrl+C).
+        # Fit once, update each step, and optionally refit periodically.
+        refit_each_step=False,
+        refit_every=20,
     )
     forecast_df = _standardize_forecast_columns(forecast_df)
     params = dict(params)

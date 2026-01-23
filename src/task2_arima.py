@@ -18,7 +18,7 @@ def _ensure_dir(path: str) -> None:
     os.makedirs(path, exist_ok=True)
 
 
-def fit_auto_arima(y_train: pd.Series):
+def fit_auto_arima(y_train: pd.Series, *, trace: Optional[bool] = None):
     """
     Returns fitted pmdarima model.
     """
@@ -29,10 +29,16 @@ def fit_auto_arima(y_train: pd.Series):
             "pmdarima is required for auto_arima. Install: pip install pmdarima"
         ) from e
 
+    seasonal = bool(config.ARIMA_SEASONAL)
+    # pmdarima warns if `m` is provided when `seasonal=False`.
+    m = int(config.ARIMA_M) if seasonal else 0
+    if trace is None:
+        trace = bool(config.ARIMA_TRACE)
+
     model = auto_arima(
         y_train,
-        seasonal=config.ARIMA_SEASONAL,
-        m=config.ARIMA_M,
+        seasonal=seasonal,
+        m=m,
         start_p=config.ARIMA_START_P,
         start_q=config.ARIMA_START_Q,
         max_p=config.ARIMA_MAX_P,
@@ -44,7 +50,7 @@ def fit_auto_arima(y_train: pd.Series):
         max_Q=config.ARIMA_MAX_Q_SEASONAL,
         max_D=config.ARIMA_MAX_D_SEASONAL,
         stepwise=config.ARIMA_STEPWISE,
-        trace=config.ARIMA_TRACE,
+        trace=trace,
         suppress_warnings=config.ARIMA_SUPPRESS_WARNINGS,
         error_action=config.ARIMA_ERROR_ACTION,
         information_criterion="aic",
@@ -110,12 +116,13 @@ def walk_forward_arima_forecast(
         if refit_each_step:
             # refit on all data seen so far (train + test[:i])
             y_hist = np.concatenate([y_train, y_test[:i]]).astype(float)
-            model = fit_auto_arima(pd.Series(y_hist))
+            # suppress trace spam during repeated refits
+            model = fit_auto_arima(pd.Series(y_hist), trace=False)
         else:
             # periodic refit if requested (still using update in between)
             if i > 0 and (i % max(int(refit_every), 1) == 0):
                 y_hist = np.concatenate([y_train, y_test[:i]]).astype(float)
-                model = fit_auto_arima(pd.Series(y_hist))
+                model = fit_auto_arima(pd.Series(y_hist), trace=False)
 
         # 1-step forecast
         try:
