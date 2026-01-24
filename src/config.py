@@ -23,15 +23,24 @@ DEFAULT_VAR_LEVEL = 0.95
 
 
 # -----------------------------------------------------------------------------
-# Paths (existing + Task 2 additions)
+# Paths (Task 1 + Task 2 additions)
+#
+# Task 1 artifacts live under data/task1/processed in this repo.
+# Keep PROCESSED_DIR as an alias for backwards compatibility.
 # -----------------------------------------------------------------------------
-PROCESSED_DIR = "data/processed"
-PRICES_PATH = f"{PROCESSED_DIR}/prices.parquet"
-RETURNS_PATH = f"{PROCESSED_DIR}/returns.parquet"
+TASK1_PROCESSED_DIR = "data/task1/processed"
+PROCESSED_DIR = TASK1_PROCESSED_DIR
 
-TASK1_ADF_PATH = f"{PROCESSED_DIR}/task1_adf_results.csv"
-TASK1_RISK_PATH = f"{PROCESSED_DIR}/task1_risk_metrics.csv"
-TASK1_OUTLIERS_PATH = f"{PROCESSED_DIR}/task1_outliers.csv"
+PRICES_PATH = f"{TASK1_PROCESSED_DIR}/prices.parquet"
+RETURNS_PATH = f"{TASK1_PROCESSED_DIR}/returns.parquet"
+
+TASK1_ADF_PATH = f"{TASK1_PROCESSED_DIR}/task1_adf_results.csv"
+TASK1_RISK_PATH = f"{TASK1_PROCESSED_DIR}/task1_risk_metrics.csv"
+TASK1_OUTLIERS_PATH = f"{TASK1_PROCESSED_DIR}/task1_outliers.csv"
+
+# Task 1 notebook / rubric artifacts
+TASK1_SCALED_PRICES_PATH = f"{TASK1_PROCESSED_DIR}/scaled_task1_prices.parquet"
+TASK1_VIZ_DIR = "outputs/task1/viz"
 
 TASK2_DATA_DIR = "data/task2"
 TASK2_SPLITS_DIR = f"{TASK2_DATA_DIR}/splits"
