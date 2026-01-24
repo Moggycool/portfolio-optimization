@@ -7,6 +7,9 @@ The project covers:
 
 - **Task 1 — Exploratory Data Analysis & Risk Metrics**  
   Data extraction, cleaning, return computation, stationarity testing, outlier detection, and portfolio risk metrics for **TSLA, BND, and SPY**.
+  embed the 3 EDA PNGs
+      embedtask1_outliers_returns.png
+      Outliers detected on daily returns using |zscore| ≥ 3.0 per asset; results saved      to task1_outliers.csv.”
 
 - **Task 2 — Time Series Forecasting**  
   Forecasting **TSLA next-day log returns (`logret_1d`)** using **ARIMA/SARIMA** and a **multivariate LSTM**, followed by model comparison using required evaluation metrics.  
