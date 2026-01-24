@@ -1,64 +1,169 @@
-# portfolio-optimization
 
-Time Series Forecasting for Portfolio Management Optimization
+# Portfolio Optimization & Time Series Forecasting (TSLA · BND · SPY)
 
-## Project Objective
+This repository provides a **script-first, fully reproducible pipeline** for financial time series analysis and forecasting, designed to meet academic and rubric-driven requirements.
 
-GMF Investments uses time-series forecasting to support portfolio optimization by forecasting **log returns** (primary) and reconstructing **price paths** (secondary) for interpretation.
+The project covers:
 
-## Data
+- **Task 1 — Exploratory Data Analysis & Risk Metrics**  
+  Data extraction, cleaning, return computation, stationarity testing, outlier detection, and portfolio risk metrics for **TSLA, BND, and SPY**.
 
-- Source: YFinance
-- Assets: TSLA (equity), SPY (market proxy), BND (bond proxy)
-- Frequency: daily
-- Period: 2015–present (configurable)
+- **Task 2 — Time Series Forecasting**  
+  Forecasting **TSLA next-day log returns (`logret_1d`)** using **ARIMA/SARIMA** and a **multivariate LSTM**, followed by model comparison using required evaluation metrics.  
+  Predicted returns are optionally reconstructed into **price paths** for stakeholder-friendly interpretation.
 
-## Task 1 (EDA) Outputs
+> **Important**  
+> Official submission outputs are the **script-generated artifacts** located under:  
+> `data/task1/processed/`, `outputs/task1/`, and `outputs/task2/`  
+>
+> Notebooks are **for inspection and presentation only**.
 
-Artifacts created by scripts:
+---
 
-- Processed dataset(s): `data/task1/processed/...`
-- Scaled dataset evidence: `data/task1/processed/scaled_task1.parquet`
-- Visualizations (PNG):
-  - `outputs/task1/viz/tsla_adj_close_timeseries.png`
-  - `outputs/task1/viz/tsla_daily_pct_change.png`
-  - `outputs/task1/viz/tsla_rolling_mean_std.png`
+## 1. Project Structure (Key Paths)
 
-## Task 2 (Forecasting) Design
+```text
+portfolio-optimization/
+├─ notebooks/
+│  ├─ 01_task1_data_extraction_and_eda.ipynb
+│  ├─ task1.ipynb
+│  ├─ task2.ipynb
+│  ├─ task2_04_model_comparison_and_discussion.ipynb
+│  ├─ README.md
+│  └─ __init__.py
+│
+├─ scripts/
+│  ├─ 01_fetch_data.py
+│  ├─ 02_make_returns_and_task1_tables.py
+│  ├─ 03_task2_make_tsla_splits_and_features.py
+│  ├─ 04_task2_train_arima.py
+│  ├─ 05_task2_train_lstm.py
+│  ├─ 06_task2_compare_models.py
+│  ├─ 07_task2_run_all.py
+│  └─ __init__.py
+│
+├─ src/
+│  ├─ config.py
+│  ├─ data_fetch.py
+│  ├─ data_prep.py
+│  ├─ eda.py
+│  ├─ io.py
+│  ├─ risk_metrics.py
+│  ├─ stationarity.py
+│  ├─ task2_arima.py
+│  ├─ task2_data.py
+│  ├─ task2_io.py
+│  ├─ task2_lstm.py
+│  ├─ task2_metrics.py
+│  ├─ task2_plots.py
+│  └─ __init__.py
+│
+├─ data/
+├─ outputs/
+├─ tests/
+│  └─ __init__.py
+│
+├─ requirements.txt
+└─ README.md
+```
 
-### Targets
+---
 
-- **Primary target:** `logret_1d` (next-day log return)
-- **Price column for features/reporting:** `adj_close`
+## 2. Environment Setup (Reproducible)
 
-### Why returns-primary?
+### Option A — venv (Recommended)
 
-- closer to stationary → better statistical validity
-- directly supports portfolio allocation and risk metrics
-- EMH suggests price-level prediction is unreliable; returns/volatility factors are more actionable
+```bash
+python -m venv .venv
+```
 
-### Outputs
+**Activate environment**
 
-- Returns forecasts:
-  - `outputs/task2/forecasts/tsla_lstm_forecast_returns.csv`
-  - `outputs/task2/forecasts/tsla_arima_forecast_returns.csv` (if enabled)
-- Price reconstruction (from predicted returns):
-  - `outputs/task2/forecasts/tsla_lstm_forecast_price.csv`
+**Windows**
 
-## How to run (script order)
+```bash
+.venv\Scripts\activate
+```
 
-1) Task 1 EDA + processing (your script name here)
+**macOS / Linux**
 
-- python scripts/01_task1_extract_and_process.py
+```bash
+source .venv/bin/activate
+```
 
-2) Task 1 scaling + visualizations (added)
+**Install dependencies**
 
-- python scripts/02_task1_scale_and_viz.py
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-3) Task 2 splits/features
+---
 
-- python scripts/04_task2_make_splits_and_features.py
+## 3. How to Run (Script Execution Order)
 
-4) Task 2 train LSTM on returns + reconstruct price
+Scripts must be run **in order**.
 
-- python scripts/05_task2_train_lstm.py
+### 3.1 Task 1 — EDA & Risk Metrics
+
+```bash
+python scripts/01_fetch_data.py
+python scripts/02_make_returns_and_task1_tables.py
+python scripts/02_task1_scale_and_viz.py
+```
+
+### 3.2 Task 2 — TSLA Forecasting
+
+```bash
+python scripts/03_task2_make_tsla_splits_and_features.py
+python scripts/04_task2_train_arima.py
+python scripts/05_task2_train_lstm.py
+python scripts/06_task2_compare_models.py
+```
+
+---
+
+## 4. Key Design Choices (Rubric-Facing)
+
+### Task 1
+
+- Uses **Adjusted Close (`adj_close`)** for consistent return and risk calculations.
+- Produces cleaned datasets, ADF stationarity tests, outlier tables, and portfolio risk metrics.
+
+### Task 2 — Returns-Primary Modeling
+
+- **Target:** `logret_1d` (stationary, portfolio-aligned).
+- **Price reconstruction:** predicted returns accumulated with an anchor price.
+- **Leakage prevention:**
+  - Chronological TRAIN / VAL / TEST splits
+  - Scalers fit on TRAIN only
+  - Targets created using `shift(-1)`
+
+---
+
+## 5. Configuration
+
+All constants and paths live in:
+
+```text
+src/config.py
+```
+
+Key settings:
+
+```python
+START_DATE = "2015-01-01"
+END_DATE   = "2026-01-15"
+
+TASK2_VAL_YEAR   = 2023
+TASK2_SPLIT_YEAR = 2024
+
+TASK2_TARGET_COL = "logret_1d"
+TASK2_PRICE_COL  = "adj_close"
+```
+
+---
+
+## 6. License
+
+This project is for **educational and assessment purposes**.

@@ -1,19 +1,25 @@
-""" Compare ARIMA and LSTM model forecasts for Task 2.
+"""
+Compare ARIMA and LSTM model forecasts for Task 2.
 
 Produces:
 - merged forecasts CSV (test set): includes raw + calibrated predictions
 - model comparison CSV: MAE/RMSE/MAPE (raw + calibrated)
 - error diagnostics CSV: bias, quantiles, win-rates (raw + calibrated)
+- forecast plot PNG (test set): actual vs ARIMA vs LSTM
+  -> outputs/task2/figures/forecast_test_period.png
 """
+
 # scripts/06_task2_compare_models.py
 # isort: skip_file
 from __future__ import annotations
+
 import os
 import sys
 import time
 from pathlib import Path
 from typing import Optional, Tuple
 
+import matplotlib.pyplot as plt
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -46,14 +52,13 @@ def _load_forecast_csv(path: str, kind: str) -> pd.DataFrame:
 
     df[date_col] = pd.to_datetime(df[date_col])
     if date_col != "date":
-        # normalize to 'date' so the rest of your code stays unchanged
+        # normalize to 'date' so the rest of the code stays unchanged
         df = df.rename(columns={date_col: "date"})
     return df
 
 
 def _infer_pred_col(df: pd.DataFrame, kind: str) -> str:
     """Infers prediction column name for given kind of model."""
-    # common in our pipeline
     if f"{kind.lower()}_pred" in df.columns:
         return f"{kind.lower()}_pred"
     for c in ["y_pred", "pred", "prediction"]:
@@ -61,7 +66,10 @@ def _infer_pred_col(df: pd.DataFrame, kind: str) -> str:
             return c
     excluded = {"date", "asset", "y_true", "actual", "adj_close"}
     numeric_cols = [
-        c for c in df.columns if c not in excluded and pd.api.types.is_numeric_dtype(df[c])]
+        c
+        for c in df.columns
+        if c not in excluded and pd.api.types.is_numeric_dtype(df[c])
+    ]
     if len(numeric_cols) == 1:
         return numeric_cols[0]
     raise ValueError(
@@ -98,12 +106,17 @@ def _merge_on_date(arima_df: pd.DataFrame, lstm_df: pd.DataFrame) -> pd.DataFram
 
 def _default_val_paths() -> Tuple[str, str]:
     """Returns default validation forecast file paths for ARIMA and LSTM models."""
-    # if you later add config.TASK2_ARIMA_VAL_FORECAST_PATH, config.TASK2_LSTM_VAL_FORECAST_PATH
-    # you can switch to those cleanly
-    arima_val = getattr(config, "TASK2_ARIMA_VAL_FORECAST_PATH",
-                        os.path.join(config.TASK2_FORECASTS_DIR, "tsla_arima_forecast_val.csv"))
-    lstm_val = getattr(config, "TASK2_LSTM_VAL_FORECAST_PATH",
-                       os.path.join(config.TASK2_FORECASTS_DIR, "tsla_lstm_forecast_val.csv"))
+    arima_val = getattr(
+        config,
+        "TASK2_ARIMA_VAL_FORECAST_PATH",
+        os.path.join(config.TASK2_FORECASTS_DIR,
+                     "tsla_arima_forecast_val.csv"),
+    )
+    lstm_val = getattr(
+        config,
+        "TASK2_LSTM_VAL_FORECAST_PATH",
+        os.path.join(config.TASK2_FORECASTS_DIR, "tsla_lstm_forecast_val.csv"),
+    )
     return arima_val, lstm_val
 
 
@@ -148,8 +161,7 @@ def _comparison_rows(df: pd.DataFrame, suffix: str = "") -> list[dict]:
 
 
 def _diagnostics_rows(df: pd.DataFrame, suffix: str = "") -> list[dict]:
-    """
-    Build diagnostics rows for a dataframe with y_true and arima_pred/lstm_pred."""
+    """Build diagnostics rows for a dataframe with y_true and arima_pred/lstm_pred."""
     rows = []
     for model_name, pred_col in [("ARIMA", "arima_pred"), ("LSTM_multivariate", "lstm_pred")]:
         m = all_metrics(df["y_true"], df[pred_col])
@@ -158,13 +170,88 @@ def _diagnostics_rows(df: pd.DataFrame, suffix: str = "") -> list[dict]:
 
     wins_arima, wins_lstm, ties = win_rate(
         df["y_true"], df["arima_pred"], df["lstm_pred"])
-    rows.append({"model": "ARIMA_win_rate" + suffix,
-                "win_rate_vs_other_pct": wins_arima, "n": int(df.shape[0])})
-    rows.append({"model": "LSTM_win_rate" + suffix,
-                "win_rate_vs_other_pct": wins_lstm, "n": int(df.shape[0])})
-    rows.append({"model": "TIES" + suffix,
-                "win_rate_vs_other_pct": ties, "n": int(df.shape[0])})
+    rows.append(
+        {
+            "model": "ARIMA_win_rate" + suffix,
+            "win_rate_vs_other_pct": wins_arima,
+            "n": int(df.shape[0]),
+        }
+    )
+    rows.append(
+        {
+            "model": "LSTM_win_rate" + suffix,
+            "win_rate_vs_other_pct": wins_lstm,
+            "n": int(df.shape[0]),
+        }
+    )
+    rows.append(
+        {
+            "model": "TIES" + suffix,
+            "win_rate_vs_other_pct": ties,
+            "n": int(df.shape[0]),
+        }
+    )
     return rows
+
+
+def _y_label_from_values(y: pd.Series) -> str:
+    """
+    Heuristic label:
+    - if typical absolute values are small, it is probably returns
+    - otherwise probably price
+    """
+    try:
+        med_abs = float(pd.Series(y).dropna().abs().median())
+    except Exception:
+        med_abs = None
+
+    if med_abs is not None and med_abs < 0.5:
+        return "Value (likely returns)"
+    return "Value (likely price)"
+
+
+def _get_forecast_plot_path() -> str:
+    """
+    Prefer config.TASK2_FIGURES_DIR if present; else default to outputs/task2/figures.
+    """
+    figures_dir = getattr(
+        config,
+        "TASK2_FIGURES_DIR",
+        os.path.join(REPO_ROOT, "outputs", "task2", "figures"),
+    )
+    return os.path.join(figures_dir, "forecast_test_period.png")
+
+
+def _save_forecast_plot(df: pd.DataFrame, out_path: str) -> None:
+    """
+    Save a plot: y_true vs ARIMA vs LSTM over the test period.
+    Expects columns: date, y_true, arima_pred, lstm_pred
+    """
+    if df is None or df.shape[0] == 0:
+        print("Skipping plot: empty dataframe.")
+        return
+
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(df["date"], df["y_true"], label="Actual", linewidth=2)
+    plt.plot(df["date"], df["arima_pred"],
+             label="ARIMA", linewidth=1.5, alpha=0.9)
+    plt.plot(df["date"], df["lstm_pred"],
+             label="LSTM (multivariate)", linewidth=1.5, alpha=0.9)
+
+    plt.title("TSLA Forecasts on Test Period")
+    plt.xlabel("Date")
+    plt.ylabel(_y_label_from_values(df["y_true"]))
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+
+    try:
+        plt.savefig(out_path, dpi=150)
+        print("Saved forecast plot:", out_path)
+    finally:
+        plt.close()
 
 
 def main() -> None:
@@ -173,11 +260,21 @@ def main() -> None:
     os.makedirs(config.TASK2_FORECASTS_DIR, exist_ok=True)
 
     # --- Load TEST forecasts ---
-    arima_test_raw = _prep_one(_load_forecast_csv(
-        config.TASK2_ARIMA_FORECAST_PATH, "ARIMA_TEST"), "ARIMA", "arima_pred")
-    lstm_test_raw = _prep_one(_load_forecast_csv(
-        config.TASK2_LSTM_FORECAST_PATH, "LSTM_TEST"), "LSTM", "lstm_pred")
+    arima_test_raw = _prep_one(
+        _load_forecast_csv(config.TASK2_ARIMA_FORECAST_PATH, "ARIMA_TEST"),
+        "ARIMA",
+        "arima_pred",
+    )
+    lstm_test_raw = _prep_one(
+        _load_forecast_csv(config.TASK2_LSTM_FORECAST_PATH, "LSTM_TEST"),
+        "LSTM",
+        "lstm_pred",
+    )
     test = _merge_on_date(arima_test_raw, lstm_test_raw)
+
+    # --- Save required plot (test period) ---
+    forecast_plot_path = _get_forecast_plot_path()
+    _save_forecast_plot(test, forecast_plot_path)
 
     # --- Fit calibration on VAL (if available), apply to TEST ---
     offsets = _maybe_fit_calibration_offsets()

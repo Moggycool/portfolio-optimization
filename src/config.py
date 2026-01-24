@@ -37,10 +37,13 @@ TASK1_ADF_PATH = f"{TASK1_PROCESSED_DIR}/task1_adf_results.csv"
 TASK1_RISK_PATH = f"{TASK1_PROCESSED_DIR}/task1_risk_metrics.csv"
 TASK1_OUTLIERS_PATH = f"{TASK1_PROCESSED_DIR}/task1_outliers.csv"
 
-# New: scaling evidence + viz outputs (rubric-friendly)
+# Scaling evidence + viz outputs (rubric-friendly)
 TASK1_SCALED_PRICES_PATH = f"{TASK1_PROCESSED_DIR}/scaled_task1_prices.parquet"
 TASK1_VIZ_DIR = "outputs/task1/viz"
 
+# -----------------------------------------------------------------------------
+# Task 2 directories
+# -----------------------------------------------------------------------------
 TASK2_DATA_DIR = "data/task2"
 TASK2_SPLITS_DIR = f"{TASK2_DATA_DIR}/splits"
 TASK2_FEATURES_DIR = f"{TASK2_DATA_DIR}/features"
@@ -51,21 +54,21 @@ TASK2_FORECASTS_DIR = f"{TASK2_OUTPUTS_DIR}/forecasts"
 TASK2_METRICS_DIR = f"{TASK2_OUTPUTS_DIR}/metrics"
 TASK2_FIGURES_DIR = f"{TASK2_OUTPUTS_DIR}/figures"
 
-TASK2_DATE_COL = "date"
-
-TASK2_PRICE_COL = "adj_close"
-TASK2_RETURN_COL = "logret_1d"
-
 # -----------------------------------------------------------------------------
-# Task 2: forecasting scope
+# Task 2: forecasting scope + column conventions
 # -----------------------------------------------------------------------------
 TASK2_ASSET = "TSLA"
 TASK2_DATE_COL = "date"
 
 # Critical decoupling:
-TASK2_PRICE_COL = "adj_close"     # used for features + reconstruction
-# used for training/evaluation (returns-primary)
-TASK2_TARGET_COL = "logret_1d"
+# - price is used for features + reconstruction
+# - target is used for modeling/evaluation (returns-primary)
+TASK2_PRICE_COL = "adj_close"
+TASK2_RETURN_COL = "logret_1d"
+TASK2_TARGET_COL = TASK2_RETURN_COL
+
+# Optional (nice for docs / downstream)
+TASK2_TARGET_MODE = "log_return"
 
 # Split rule:
 # - TRAIN ends at last trading day in val_year
@@ -190,11 +193,11 @@ TASK2_LSTM_MODEL_PATH = f"{TASK2_MODELS_DIR}/lstm_model.keras"
 TASK2_LSTM_ARCH_PATH = f"{TASK2_METRICS_DIR}/lstm_architecture.json"
 
 # Forecast outputs:
-# Keep your existing filename for compatibility, but it now contains returns:
+# Keep existing filename for compatibility, but it contains returns (target_col).
 TASK2_LSTM_FORECAST_PATH = f"{TASK2_FORECASTS_DIR}/tsla_lstm_forecast.csv"
 TASK2_LSTM_VAL_FORECAST_PATH = f"{TASK2_FORECASTS_DIR}/tsla_lstm_forecast_val.csv"
 
-# New: reconstructed price paths from predicted returns
+# Reconstructed price paths from predicted returns
 TASK2_LSTM_FORECAST_PRICE_PATH = f"{TASK2_FORECASTS_DIR}/tsla_lstm_forecast_price.csv"
 TASK2_LSTM_VAL_FORECAST_PRICE_PATH = f"{TASK2_FORECASTS_DIR}/tsla_lstm_forecast_val_price.csv"
 
@@ -204,16 +207,37 @@ TASK2_LSTM_VAL_FORECAST_PRICE_PATH = f"{TASK2_FORECASTS_DIR}/tsla_lstm_forecast_
 # -----------------------------------------------------------------------------
 TASK2_FORECASTS_MERGED_PATH = f"{TASK2_FORECASTS_DIR}/tsla_forecasts_merged.csv"
 TASK2_MODEL_COMPARISON_PATH = f"{TASK2_METRICS_DIR}/model_comparison.csv"
+TASK2_ERROR_DIAGNOSTICS_PATH = f"{TASK2_METRICS_DIR}/error_diagnostics.csv"
 
 TASK2_FORECAST_PLOT_PATH = f"{TASK2_FIGURES_DIR}/forecast_test_period.png"
+
 # rename to reflect returns-primary (optional); keep old name if notebook expects it
 TASK2_ACF_PACF_PLOT_PATH = f"{TASK2_FIGURES_DIR}/acf_pacf_logret_1d.png"
 
 
-# Model on stationary target
-TASK2_TARGET_COL = TASK2_RETURN_COL
-TASK2_TARGET_MODE = "log_return"   # optional but nice for docs
+# -----------------------------------------------------------------------------
+# Optional aliases (backward/forward compatibility)
+# -----------------------------------------------------------------------------
+# Some repos/notebooks use these shorter names; keep as aliases if helpful.
+MODEL_COMPARISON_PATH = TASK2_MODEL_COMPARISON_PATH
+ERROR_DIAGNOSTICS_PATH = TASK2_ERROR_DIAGNOSTICS_PATH
 
+ARIMA_FORECAST_PATH = TASK2_ARIMA_FORECAST_PATH
+LSTM_FORECAST_PATH = TASK2_LSTM_FORECAST_PATH
+MERGED_FORECASTS_PATH = TASK2_FORECASTS_MERGED_PATH
 
-TASK2_LSTM_RET_FORECAST_PATH = f"{TASK2_FORECASTS_DIR}/tsla_lstm_forecast_returns.csv"
-TASK2_LSTM_PRICE_FORECAST_PATH = f"{TASK2_FORECASTS_DIR}/tsla_lstm_forecast_price.csv"
+FORECAST_PLOT_PATH = TASK2_FORECAST_PLOT_PATH
+
+SPLIT_INFO_PATH = TASK2_SPLIT_INFO_PATH
+ARIMA_PARAMS_PATH = TASK2_ARIMA_PARAMS_PATH
+LSTM_ARCH_PATH = TASK2_LSTM_ARCH_PATH
+
+# -----------------------------------------------------------------------------
+# Clean up: remove conflicting/duplicate definitions from older drafts
+# -----------------------------------------------------------------------------
+# NOTE: Do not re-define TASK2_DATE_COL / TASK2_TARGET_COL again below this line.
+# If you previously had:
+#   TASK2_LSTM_RET_FORECAST_PATH / TASK2_LSTM_PRICE_FORECAST_PATH
+# keep them as aliases to the canonical paths:
+TASK2_LSTM_RET_FORECAST_PATH = TASK2_LSTM_FORECAST_PATH
+TASK2_LSTM_PRICE_FORECAST_PATH = TASK2_LSTM_FORECAST_PRICE_PATH
