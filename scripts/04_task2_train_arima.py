@@ -1,15 +1,21 @@
 """ A script to train ARIMA model for Task 2: Time Series Forecasting. """
 # scripts/04_task2_train_arima.py
+# isort: skip_file
 from __future__ import annotations
-
 import json
 import os
+import sys
+from pathlib import Path
 from typing import Dict, Tuple
 
 import pandas as pd
 
-from src import config
-from src.task2_arima import arima_forecast, save_arima_outputs
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src import config  # noqa: E402
+from src.task2_arima import arima_forecast, save_arima_outputs  # noqa: E402
 
 
 def _ensure_dir(path: str) -> None:
@@ -109,9 +115,10 @@ def _fit_and_forecast(
 def main() -> None:
     """Main training script for ARIMA model on Task 2 data."""
     # --- Load splits ---
-    train_df = pd.read_parquet(config.TASK2_TRAIN_SPLIT_PATH)
-    val_df = pd.read_parquet(config.TASK2_VAL_SPLIT_PATH)
-    test_df = pd.read_parquet(config.TASK2_TEST_SPLIT_PATH)
+    # ARIMA target is returns-primary (logret_1d). Use feature splits, not raw OHLCV.
+    train_df = pd.read_parquet(config.TASK2_FEATURES_TRAIN_PATH)
+    val_df = pd.read_parquet(config.TASK2_FEATURES_VAL_PATH)
+    test_df = pd.read_parquet(config.TASK2_FEATURES_TEST_PATH)
 
     # --- Basic validation ---
     _require_cols(train_df, [config.TASK2_DATE_COL,

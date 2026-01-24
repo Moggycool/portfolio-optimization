@@ -6,16 +6,22 @@ Produces:
 - error diagnostics CSV: bias, quantiles, win-rates (raw + calibrated)
 """
 # scripts/06_task2_compare_models.py
+# isort: skip_file
 from __future__ import annotations
-
 import os
+import sys
 import time
+from pathlib import Path
 from typing import Optional, Tuple
 
 import pandas as pd
 
-from src import config
-from src.task2_metrics import (
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src import config  # noqa: E402
+from src.task2_metrics import (  # noqa: E402
     all_metrics,
     error_stats,
     fit_bias_offset,

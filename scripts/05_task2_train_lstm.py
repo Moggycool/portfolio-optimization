@@ -1,11 +1,20 @@
 """ A script to train LSTM model for Task 2: Time Series Forecasting (returns-primary). """
+# isort: skip_file
 from __future__ import annotations
-
-import os
 import pandas as pd
+import importlib
+import os
+import sys
+from pathlib import Path
 
-from src import config
-from src.task2_lstm import train_lstm_and_forecast, save_lstm_outputs
+# Allow running as a script from any working directory (fixes `ModuleNotFoundError: src`).
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+
+from src import config  # noqa: E402
+from src.task2_lstm import train_lstm_and_forecast, save_lstm_outputs  # noqa: E402
 
 
 def main():

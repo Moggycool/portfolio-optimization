@@ -68,7 +68,7 @@ def make_engineered_features(df: pd.DataFrame, price_col: str) -> pd.DataFrame:
     out["ret_1d"] = out[price_col].pct_change()
 
     # 1d log return on price
-    out["logret_1d"] = np.log(out[price_col]).diff()
+    out["logret_1d"] = out[price_col].astype(float).apply(np.log).diff()
 
     # 20d rolling volatility of log returns
     out["vol_20d"] = out["logret_1d"].rolling(20).std()
@@ -182,10 +182,15 @@ def save_splits_and_features(
         config.TASK2_DATE_COL).reset_index(drop=True)
 
     if val_year is None:
-        val_year = getattr(config, "TASK2_VAL_YEAR", split_year - 1)
+        val_year_cfg = getattr(config, "TASK2_VAL_YEAR", split_year - 1)
+        if val_year_cfg is None:
+            raise ValueError("val_year is None and config.TASK2_VAL_YEAR is None.")
+        val_year_int = int(val_year_cfg)
+    else:
+        val_year_int = int(val_year)
 
-    cutoff_test = find_last_trading_day_in_year(df_asset_raw, split_year)
-    cutoff_val = find_last_trading_day_in_year(df_asset_raw, val_year)
+    cutoff_test = find_last_trading_day_in_year(df_asset_raw, int(split_year))
+    cutoff_val = find_last_trading_day_in_year(df_asset_raw, val_year_int)
 
     # --- raw 3-way split ---
     d_raw = pd.to_datetime(df_asset_raw[config.TASK2_DATE_COL])
@@ -217,7 +222,7 @@ def save_splits_and_features(
     info = SplitInfo(
         asset=config.TASK2_ASSET,
         split_year=int(split_year),
-        val_year=int(val_year),
+        val_year=int(val_year_int),
         cutoff_date_val=str(pd.to_datetime(cutoff_val).date()),
         cutoff_date_test=str(pd.to_datetime(cutoff_test).date()),
         n_total=int(len(df_asset_raw)),
