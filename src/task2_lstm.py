@@ -1,11 +1,10 @@
-""" LSTM modeling for Task 2: Time Series Forecasting. """
-# src/task2_lstm.py
+""" LSTM modeling for Task 2: Time Series Forecasting (returns-primary). """
 from __future__ import annotations
 
 import json
 import os
 from dataclasses import asdict, dataclass
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -36,6 +35,7 @@ class LSTMRunInfo:
     horizon: int
     feature_cols: List[str]
     target_col: str
+    price_col: str
     scaler_type: str
     epochs: int
     batch_size: int
@@ -66,13 +66,13 @@ def make_sequences(
     return np.asarray(Xs, dtype=np.float32), np.asarray(ys, dtype=np.float32)
 
 
-def get_scalers(scaler_type: str):
-    """Returns tuple of (X_scaler, y_scaler) based on scaler_type."""
+def get_x_scaler(scaler_type: str):
+    """Returns an X scaler based on scaler_type."""
     st = scaler_type.lower()
     if st == "minmax":
-        return MinMaxScaler(), MinMaxScaler()
+        return MinMaxScaler()
     if st == "standard":
-        return StandardScaler(), StandardScaler()
+        return StandardScaler()
     raise ValueError(
         f"Unknown scaler_type={scaler_type}. Use 'minmax' or 'standard'.")
 
@@ -117,73 +117,93 @@ def build_lstm_model(input_shape: Tuple[int, int]):
     return model
 
 
+def reconstruct_price_from_logrets(p0: float, logrets: np.ndarray) -> np.ndarray:
+    """P_t = p0 * exp(cumsum(logrets))"""
+    r = np.asarray(logrets, dtype=float).reshape(-1)
+    return float(p0) * np.exp(np.cumsum(r))
+
+
+def _add_next_day_target(df_feat: pd.DataFrame, target_col: str) -> pd.DataFrame:
+    """
+    Creates supervised next-day target y from target_col.
+    If target_col is logret_1d, then:
+      y_t = logret_1d_{t+1}
+    """
+    out = df_feat.sort_values(
+        config.TASK2_DATE_COL).reset_index(drop=True).copy()
+    out["y"] = out[target_col].shift(-1)
+    return out
+
+
 def train_lstm_and_forecast(
     train_feat: pd.DataFrame,
     test_feat: pd.DataFrame,
     feature_cols: List[str],
     target_col: str = config.TASK2_TARGET_COL,
+    price_col: str = config.TASK2_PRICE_COL,
     date_col: str = config.TASK2_DATE_COL,
-) -> Tuple[pd.DataFrame, Dict, object]:
+) -> Tuple[pd.DataFrame, pd.DataFrame, Dict, object]:
     """
-    Train on train_feat, forecast next-day for the provided test_feat period using sliding windows.
+    Train on train_feat, forecast next-day returns for the provided test_feat period.
+
     Returns:
-      forecast_df: [date, y_true, lstm_pred]
-      info: dict (architecture & metrics)
+      forecast_ret_df: [date, y_true, lstm_pred]   # returns space (official scoring)
+      forecast_price_df: [date, p0, y_true_price, y_pred_price]  # reconstructed path
+      info: dict (architecture & metrics in returns space)
       model: trained keras model
     """
     _set_seeds(config.TASK2_RANDOM_SEED)
 
+    # --- Build supervised y (next day) ---
+    train_sup = _add_next_day_target(
+        train_feat, target_col=target_col).dropna().reset_index(drop=True)
+    test_sup = _add_next_day_target(
+        test_feat, target_col=target_col).dropna().reset_index(drop=True)
+
+    # Ensure price column exists for reconstruction
+    if price_col not in train_sup.columns or price_col not in test_sup.columns:
+        raise ValueError(
+            f"Missing price_col={price_col} in feature frames. Ensure task2_data keeps it.")
+
     # --- Prepare arrays ---
-    X_train_raw = train_feat[feature_cols].astype(float).values
-    y_train_raw = train_feat[target_col].astype(float).values.reshape(-1, 1)
+    X_train_raw = train_sup[feature_cols].astype(float).values
+    y_train = train_sup["y"].astype(float).values  # returns (no y-scaler)
 
-    X_test_raw = test_feat[feature_cols].astype(float).values
-    y_test_raw = test_feat[target_col].astype(float).values.reshape(-1, 1)
+    X_test_raw = test_sup[feature_cols].astype(float).values
+    y_test_true = test_sup["y"].astype(float).values
 
-    # --- Fit scalers on TRAIN only ---
-    x_scaler, y_scaler = get_scalers(config.LSTM_SCALER_TYPE)
+    # --- Fit X scaler on TRAIN only ---
+    x_scaler = get_x_scaler(config.LSTM_SCALER_TYPE)
     X_train = x_scaler.fit_transform(X_train_raw)
-    y_train = y_scaler.fit_transform(y_train_raw).reshape(-1)
-
-    # --- Transform test features; keep y_true in original scale for metrics ---
     X_test = x_scaler.transform(X_test_raw)
-    y_test_true = y_test_raw.reshape(-1)
 
     # Sequence forecasting uses appended context (train + test) for window availability.
     X_all = np.vstack([X_train, X_test])
-    y_all_scaled = np.concatenate(
-        [y_train, y_scaler.transform(y_test_raw).reshape(-1)])
+    y_all = np.concatenate([y_train, y_test_true])
 
     lookback = int(config.LSTM_LOOKBACK)
     horizon = int(config.LSTM_HORIZON)
 
-    X_seq, y_seq = make_sequences(X_all, y_all_scaled, lookback, horizon)
+    X_seq, y_seq = make_sequences(X_all, y_all, lookback, horizon)
 
-    # Each y_seq element corresponds to an original (train+test) index:
-    # target_idx = lookback + horizon - 1 + seq_idx
+    # Mapping from sequence index -> original row index of y (in train_sup+test_sup)
     first_target_idx = lookback + horizon - 1
     target_indices = np.arange(first_target_idx, first_target_idx + len(y_seq))
 
-    # Targets strictly AFTER the last train index belong to test forecast evaluation
-    train_last_idx = len(train_feat) - 1
+    train_last_idx = len(train_sup) - 1
     test_mask = target_indices > train_last_idx
 
     X_train_seq = X_seq[~test_mask]
     y_train_seq = y_seq[~test_mask]
-
     X_test_seq = X_seq[test_mask]
+    y_true = y_seq[test_mask]
 
     # Dates for predicted targets
     all_dates = pd.to_datetime(
-        pd.concat([train_feat[date_col], test_feat[date_col]],
+        pd.concat([train_sup[date_col], test_sup[date_col]],
                   axis=0).reset_index(drop=True)
     )
-    test_dates = all_dates.iloc[target_indices[test_mask]].values
-
-    # True y for those dates in ORIGINAL scale
-    y_all_true = np.concatenate(
-        [train_feat[target_col].values, test_feat[target_col].values])
-    y_true = y_all_true[target_indices[test_mask]].astype(float)
+    pred_dates = all_dates.iloc[target_indices[test_mask]].values
 
     # --- Build + train model ---
     model = build_lstm_model(input_shape=(lookback, len(feature_cols)))
@@ -224,16 +244,37 @@ def train_lstm_and_forecast(
         verbose=1,
     )
 
-    # --- Predict (scaled -> invert to original price scale) ---
-    y_pred_scaled = model.predict(X_test_seq, verbose=0).reshape(-1, 1)
-    y_pred = y_scaler.inverse_transform(
-        y_pred_scaled).reshape(-1).astype(float)
+    # --- Predict returns ---
+    y_pred = model.predict(X_test_seq, verbose=0).reshape(-1).astype(float)
 
-    forecast_df = pd.DataFrame(
+    forecast_ret_df = pd.DataFrame(
         {
-            date_col: pd.to_datetime(test_dates),
-            "y_true": y_true,
+            date_col: pd.to_datetime(pred_dates),
+            "y_true": y_true.astype(float),
             "lstm_pred": y_pred,
+        }
+    )
+
+    # --- Price reconstruction (secondary reporting) ---
+    # We need p0: last observed price BEFORE the first predicted return date.
+    # pred_dates correspond to target_indices[test_mask] in concatenated (train_sup+test_sup).
+    # Let first_pred_global_idx be that first target index; p0 is price at (first_pred_global_idx - 1)
+    # because return at t is log(P_t) - log(P_{t-1}).
+    feat_all = pd.concat([train_sup, test_sup], axis=0).reset_index(drop=True)
+    first_pred_global_idx = int(target_indices[test_mask][0])
+    p0 = float(feat_all[price_col].iloc[first_pred_global_idx - 1])
+
+    y_true_price = reconstruct_price_from_logrets(
+        p0=p0, logrets=forecast_ret_df["y_true"].values)
+    y_pred_price = reconstruct_price_from_logrets(
+        p0=p0, logrets=forecast_ret_df["lstm_pred"].values)
+
+    forecast_price_df = pd.DataFrame(
+        {
+            date_col: forecast_ret_df[date_col].values,
+            "p0": p0,
+            "y_true_price": y_true_price,
+            "y_pred_price": y_pred_price,
         }
     )
 
@@ -242,6 +283,7 @@ def train_lstm_and_forecast(
         horizon=horizon,
         feature_cols=feature_cols,
         target_col=target_col,
+        price_col=price_col,
         scaler_type=config.LSTM_SCALER_TYPE,
         epochs=config.LSTM_EPOCHS,
         batch_size=config.LSTM_BATCH_SIZE,
@@ -258,22 +300,37 @@ def train_lstm_and_forecast(
             "loss": float(history.history["loss"][-1]) if "loss" in history.history else None,
             "val_loss": float(history.history["val_loss"][-1]) if "val_loss" in history.history else None,
         },
-        "metrics": all_metrics(forecast_df["y_true"], forecast_df["lstm_pred"]),
+        # Metrics are computed in RETURNS space (primary)
+        "metrics": all_metrics(forecast_ret_df["y_true"], forecast_ret_df["lstm_pred"]),
     }
 
-    return forecast_df, info, model
+    return forecast_ret_df, forecast_price_df, info, model
 
 
-def save_lstm_outputs(forecast_df: pd.DataFrame, info: Dict, model) -> None:
-    """Saves forecast CSV, run info JSON, and the Keras model."""
+def save_lstm_outputs(
+    forecast_ret_df: pd.DataFrame,
+    forecast_price_df: pd.DataFrame,
+    info: Dict,
+    model,
+    forecast_path: Optional[str] = None,
+    arch_path: Optional[str] = None,
+    model_path: Optional[str] = None,
+    price_forecast_path: Optional[str] = None,
+) -> None:
+    """Saves forecast CSVs (returns + price), run info JSON, and the Keras model."""
     _ensure_dir(config.TASK2_FORECASTS_DIR)
     _ensure_dir(config.TASK2_METRICS_DIR)
     _ensure_dir(config.TASK2_MODELS_DIR)
 
-    forecast_df.to_csv(config.TASK2_LSTM_FORECAST_PATH, index=False)
+    forecast_path = forecast_path or config.TASK2_LSTM_FORECAST_PATH
+    arch_path = arch_path or config.TASK2_LSTM_ARCH_PATH
+    model_path = model_path or config.TASK2_LSTM_MODEL_PATH
+    price_forecast_path = price_forecast_path or config.TASK2_LSTM_FORECAST_PRICE_PATH
 
-    with open(config.TASK2_LSTM_ARCH_PATH, "w", encoding="utf-8") as f:
+    forecast_ret_df.to_csv(forecast_path, index=False)
+    forecast_price_df.to_csv(price_forecast_path, index=False)
+
+    with open(arch_path, "w", encoding="utf-8") as f:
         json.dump(info, f, indent=2)
 
-    # Save model (.keras)
-    model.save(config.TASK2_LSTM_MODEL_PATH)
+    model.save(model_path)
