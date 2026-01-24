@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Tuple, Optional, List, Any
 
 import numpy as np
 import pandas as pd
@@ -67,7 +67,8 @@ def _safe_model_info(model) -> Dict:
     def _call_or_nan(attr_name: str) -> float:
         attr = getattr(model, attr_name, None)
         try:
-            return float(attr()) if callable(attr) else float(attr)
+            value: Any = attr() if callable(attr) else attr
+            return float(value)
         except Exception:
             return float("nan")
 
@@ -89,7 +90,7 @@ def walk_forward_arima_forecast(
     refit_each_step: bool = True,   # kept for API compatibility; we’ll interpret below
     refit_every: int = 1,
     verbose: bool = False,
-) -> Tuple[pd.DataFrame, Dict]:
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Walk-forward 1-step ahead ARIMA forecasting using pmdarima's update().
 
@@ -115,13 +116,19 @@ def walk_forward_arima_forecast(
         # optional refit policy
         if refit_each_step:
             # refit on all data seen so far (train + test[:i])
-            y_hist = np.concatenate([y_train, y_test[:i]]).astype(float)
+            y_hist = np.concatenate(
+                (np.asarray(y_train, dtype=float),
+                 np.asarray(y_test[:i], dtype=float))
+            )
             # suppress trace spam during repeated refits
             model = fit_auto_arima(pd.Series(y_hist), trace=False)
         else:
             # periodic refit if requested (still using update in between)
             if i > 0 and (i % max(int(refit_every), 1) == 0):
-                y_hist = np.concatenate([y_train, y_test[:i]]).astype(float)
+                y_hist = np.concatenate(
+                    (np.asarray(y_train, dtype=float),
+                     np.asarray(y_test[:i], dtype=float))
+                )
                 model = fit_auto_arima(pd.Series(y_hist), trace=False)
 
         # 1-step forecast
@@ -153,7 +160,7 @@ def walk_forward_arima_forecast(
             "y_pred": np.asarray(preds, dtype=float)}
     )
 
-    params = {
+    params: Dict[str, Any] = {
         "asset": config.TASK2_ASSET,
         "target_col": target_col,
         "strategy": "walk_forward",
@@ -171,7 +178,7 @@ def direct_arima_forecast(
     test_df: pd.DataFrame,
     target_col: str,
     date_col: str,
-) -> Tuple[pd.DataFrame, Dict]:
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Fits ARIMA on train target, forecasts for len(test) in one shot.
     (Kept for comparison; less finance-correct for backtesting than walk-forward.)
@@ -193,7 +200,7 @@ def direct_arima_forecast(
         }
     )
 
-    params = {
+    params: Dict[str, Any] = {
         "asset": config.TASK2_ASSET,
         "target_col": target_col,
         "strategy": "direct",
@@ -212,7 +219,7 @@ def arima_forecast(
     strategy: str = "walk_forward",
     refit_each_step: bool = True,
     refit_every: int = 1,
-) -> Tuple[pd.DataFrame, Dict]:
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Main entrypoint.
 

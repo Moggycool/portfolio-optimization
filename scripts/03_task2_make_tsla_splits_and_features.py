@@ -1,11 +1,18 @@
 """ A script to create train/val/test splits and features for Task 2: Time Series Forecasting. """
 # scripts/03_task2_make_splits_and_features.py
+# isort: skip_file
 from __future__ import annotations
-
 import os
+import sys
+from pathlib import Path
 
-from src.task2_data import load_prices, filter_asset, save_splits_and_features
-from src import config
+# Allow running as a script from any working directory (fixes `ModuleNotFoundError: src`).
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src import config  # noqa: E402
+from src.task2_data import load_prices, filter_asset, save_splits_and_features  # noqa: E402
 
 
 def _assert_exists(path: str) -> None:
