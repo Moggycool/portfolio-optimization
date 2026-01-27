@@ -22,3 +22,27 @@ jobs:
         env:
             PYTHONUNBUFFERED: "1"
             PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: ${{ matrix.python-version }}
+                  cache: pip
+
+            - name: Install dependencies
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -r requirements.txt
+                  pip install pytest
+
+            # If your tests import from `src/` or repo root modules, this prevents import errors.
+            - name: Set PYTHONPATH
+              run: echo "PYTHONPATH=${GITHUB_WORKSPACE}" >> $GITHUB_ENV
+
+            - name: Run tests
+              run: |
+                  pytest -q
