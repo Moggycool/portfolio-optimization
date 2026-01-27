@@ -1,0 +1,33 @@
+{
+  "backtest_window": {
+    "start": "2025-01-01",
+    "end": "2026-01-31",
+    "n_days": 259
+  },
+  "mode": "monthly",
+  "transaction_cost_bps": 0,
+  "strategy_weights_initial": {
+    "BND": 0.0,
+    "SPY": 0.8505094637659965,
+    "TSLA": 0.14949053623400368
+  },
+  "benchmark_weights": {
+    "SPY": 0.6,
+    "BND": 0.4,
+    "TSLA": 0.0
+  },
+  "strategy_metrics": {
+    "total_return": 0.19607980324258034,
+    "annualized_return": 0.19030574897262786,
+    "annualized_volatility": 0.2372279731159553,
+    "sharpe": 0.7677819799801683,
+    "max_drawdown": -0.22857683600492573
+  },
+  "benchmark_metrics": {
+    "total_return": 0.14920835853208958,
+    "annualized_return": 0.144896892837183,
+    "annualized_volatility": 0.1179671030066075,
+    "sharpe": 1.0378177188330082,
+    "max_drawdown": -0.11288789322897841
+  }
+}

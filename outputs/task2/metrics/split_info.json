@@ -1,0 +1,11 @@
+{
+  "asset": "TSLA",
+  "split_year": 2024,
+  "val_year": 2023,
+  "cutoff_date_val": "2023-12-29",
+  "cutoff_date_test": "2024-12-31",
+  "n_total": 2775,
+  "n_train": 2264,
+  "n_val": 252,
+  "n_test": 259
+}

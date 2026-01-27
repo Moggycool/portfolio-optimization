@@ -1,0 +1,39 @@
+{
+  "spec_path": "D:\\Python\\Week 9\\portfolio-optimization\\outputs\\task2\\metrics\\arima_params_val.json",
+  "spec": {
+    "asset": "TSLA",
+    "target_col": "logret_1d",
+    "strategy": "walk_forward",
+    "refit_each_step": false,
+    "refit_every": 20,
+    "seasonal": false,
+    "m": 5,
+    "order": [
+      0,
+      0,
+      0
+    ],
+    "seasonal_order": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "aic": -9337.677005222948,
+    "bic": -9326.063612477905,
+    "metrics": {
+      "MAE": 0.02896549839070745,
+      "RMSE": 0.03961625927898813,
+      "MAPE_pct": 143.4349879213699
+    },
+    "split": "val"
+  },
+  "alpha": 0.05,
+  "n_sims": 5000,
+  "asset": "TSLA",
+  "price_col": "adj_close",
+  "requested_return_col": "logret_1d",
+  "return_col_used": "return",
+  "logret_construction": "converted simple 'return' to log returns via log1p",
+  "last_observed_date": "2026-01-14 00:00:00"
+}

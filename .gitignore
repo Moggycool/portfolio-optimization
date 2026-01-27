@@ -1,5 +1,4 @@
 data/
-outputs/
 Menv/
 __pycache__/
 *.pyc

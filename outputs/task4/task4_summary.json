@@ -1,0 +1,45 @@
+{
+  "assets": [
+    "BND",
+    "SPY",
+    "TSLA"
+  ],
+  "tsla_forecast_horizon_used": "6m",
+  "risk_free_rate_annual": 0.02,
+  "expected_returns_annual": {
+    "BND": 0.020433766477404126,
+    "SPY": 0.14285010476067125,
+    "TSLA": 0.35057822689751306
+  },
+  "min_vol": {
+    "weights": {
+      "BND": 0.9428654274683076,
+      "SPY": 0.05713457253169254,
+      "TSLA": 0.0
+    },
+    "expected_return": 0.027427971636113664,
+    "volatility": 0.052565424488183854,
+    "sharpe": 0.14130907737239698
+  },
+  "max_sharpe": {
+    "weights": {
+      "BND": 0.0,
+      "SPY": 0.8505094637659965,
+      "TSLA": 0.14949053623400368
+    },
+    "expected_return": 0.17390349312979037,
+    "volatility": 0.20744173900059573,
+    "sharpe": 0.7419118923282281
+  },
+  "recommended": {
+    "choice": "Maximum Sharpe Ratio",
+    "weights": {
+      "BND": 0.0,
+      "SPY": 0.8505094637659965,
+      "TSLA": 0.14949053623400368
+    },
+    "expected_return": 0.17390349312979037,
+    "volatility": 0.20744173900059573,
+    "sharpe": 0.7419118923282281
+  }
+}

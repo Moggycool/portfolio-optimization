@@ -1,0 +1,1 @@
+We recommend the **Maximum Sharpe Ratio** portfolio because it provides an attractive trade-off between return and risk given the TSLA forecast-based view and the historical diversification structure across SPY and BND. The portfolio’s expected annual return is approximately **17.39%**, with expected annual volatility of **20.74%** and a Sharpe ratio of **0.74** (rf=2% annual).

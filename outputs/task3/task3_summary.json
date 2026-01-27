@@ -1,0 +1,62 @@
+{
+  "asset": "TSLA",
+  "alpha": 0.05,
+  "horizons": {
+    "6m": {
+      "trend": {
+        "start": 439.6590462339022,
+        "end": 506.0981604696772,
+        "pct_change": 15.111508521180038,
+        "slope_per_step": 0.5480965006966115,
+        "label": "upward"
+      },
+      "ci_width_summary": {
+        "day_1": 51.61314826224276,
+        "day_21_~1m": 242.79563952685805,
+        "day_63_~3m": 457.99575362722135,
+        "day_126_~6m": 729.2160430569461,
+        "day_252_~12m": 729.2160430569461,
+        "end": 729.2160430569461,
+        "start": 51.61314826224276,
+        "end_to_start_ratio": 14.128493758060463
+      },
+      "opportunities": [
+        "Central forecast trend is **upward** (p50 change \u2248 15.11% over horizon).",
+        "Potential opportunity: gradual upside scenario supports phased entry / rebalancing toward TSLA within risk limits."
+      ],
+      "risks": [
+        "Uncertainty widens materially with horizon (band width end/start ratio \u2248 14.13\u00d7).",
+        "High forecast uncertainty implies long-horizon point forecasts should not be treated as precise targets.",
+        "Wide bands indicate substantial tail-risk; use scenarios for VaR/stress testing and set position limits accordingly."
+      ]
+    },
+    "12m": {
+      "trend": {
+        "start": 439.6590462339022,
+        "end": 594.56586572283,
+        "pct_change": 35.23339751924863,
+        "slope_per_step": 0.6186179104794655,
+        "label": "upward"
+      },
+      "ci_width_summary": {
+        "day_1": 51.61314826224276,
+        "day_21_~1m": 242.79563952685805,
+        "day_63_~3m": 457.99575362722135,
+        "day_126_~6m": 729.2160430569461,
+        "day_252_~12m": 1301.436579353713,
+        "end": 1301.436579353713,
+        "start": 51.61314826224276,
+        "end_to_start_ratio": 25.215214013708398
+      },
+      "opportunities": [
+        "Central forecast trend is **upward** (p50 change \u2248 35.23% over horizon).",
+        "Potential opportunity: gradual upside scenario supports phased entry / rebalancing toward TSLA within risk limits."
+      ],
+      "risks": [
+        "Uncertainty widens materially with horizon (band width end/start ratio \u2248 25.22\u00d7).",
+        "High forecast uncertainty implies long-horizon point forecasts should not be treated as precise targets.",
+        "Wide bands indicate substantial tail-risk; use scenarios for VaR/stress testing and set position limits accordingly."
+      ]
+    }
+  }
+}

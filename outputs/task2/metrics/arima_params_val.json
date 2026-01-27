@@ -1,0 +1,28 @@
+{
+  "asset": "TSLA",
+  "target_col": "logret_1d",
+  "strategy": "walk_forward",
+  "refit_each_step": false,
+  "refit_every": 20,
+  "seasonal": false,
+  "m": 5,
+  "order": [
+    0,
+    0,
+    0
+  ],
+  "seasonal_order": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "aic": -9337.677005222948,
+  "bic": -9326.063612477905,
+  "metrics": {
+    "MAE": 0.02896549839070745,
+    "RMSE": 0.03961625927898813,
+    "MAPE_pct": 143.4349879213699
+  },
+  "split": "val"
+}

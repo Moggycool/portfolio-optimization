@@ -1,0 +1,39 @@
+{
+  "run": {
+    "lookback": 60,
+    "horizon": 1,
+    "feature_cols": [
+      "open",
+      "high",
+      "low",
+      "close",
+      "adj_close",
+      "volume",
+      "ret_1d",
+      "logret_1d",
+      "vol_20d",
+      "sma_20",
+      "sma_60",
+      "vol_chg_1d"
+    ],
+    "target_col": "logret_1d",
+    "price_col": "adj_close",
+    "scaler_type": "minmax",
+    "epochs": 30,
+    "batch_size": 32,
+    "learning_rate": 0.001,
+    "units_1": 64,
+    "units_2": 32,
+    "dropout": 0.2,
+    "rec_dropout": 0.0
+  },
+  "history_last": {
+    "loss": 0.0015499928267672658,
+    "val_loss": 0.0010713757947087288
+  },
+  "metrics": {
+    "MAE": 0.03617093920981933,
+    "RMSE": 0.0463012501218242,
+    "MAPE_pct": 589.1996096067745
+  }
+}
